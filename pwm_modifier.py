@@ -48,6 +48,22 @@ def _unquote(a):
     return a
 
 
+def _unquote_sql(a):
+    """양끝 따옴표만 제거하고 내부 들여쓰기는 보존.
+
+    wrap(`" ... "`) 시 추가되는 양끝 1칸 패딩만 제거한다. 변수/식은 그대로 둠.
+    """
+    a = a.strip()
+    if len(a) >= 2 and a[0] in "\"'" and a[-1] == a[0]:
+        inner = a[1:-1]
+        if inner.startswith(" "):
+            inner = inner[1:]
+        if inner.endswith(" "):
+            inner = inner[:-1]
+        return inner
+    return a
+
+
 def _parse_call(line):
     """'pwm.method(...)' 에서 (메서드명, 인자문자열, 뒤쪽) 추출. 괄호 매칭 기반."""
     m = re.match(r"pwm\.(\w+)\s*\(", line)
@@ -85,9 +101,9 @@ def _to_sql(name, raw_args):
     def a(i):
         return _unquote(args[i]) if i < n else ""
 
-    # 첫 인자가 SQL 문자열인 메서드
+    # 첫 인자가 SQL 문자열인 메서드 → 따옴표 내부 들여쓰기 보존
     if name in ("appendWithCR", "appendWithParam", "appendFormat"):
-        return a(0)
+        return _unquote_sql(args[0]) if n else ""
     if name == "append":
         # append(str) / append(CAT_OP, col, OP, val)
         return f"{a(0)} {a(1)} {a(2)} {a(3)}".strip() if n >= 4 else a(0)
@@ -163,12 +179,14 @@ def process_line(line):
         return content
     else:
         # 감싸기(랩): SQL → pwm.appendWithCR(...). SQL 주석(--)은 자바 주석(//)으로 빼냄
-        idx = stripped.find("--")
+        # 선행 들여쓰기는 따옴표 내부에 보존(후행 공백만 제거)
+        body = line.rstrip()
+        idx = body.find("--")
         if idx != -1:
-            content = stripped[:idx].strip()
-            comment = stripped[idx + 2:].strip()
+            content = body[:idx].rstrip()
+            comment = body[idx + 2:].strip()
             return f'pwm.appendWithCR(" {content} "); // {comment}'
-        return f'pwm.appendWithCR(" {stripped} ");'
+        return f'pwm.appendWithCR(" {body} ");'
 
 
 if __name__ == "__main__":
