@@ -51,13 +51,11 @@ def _unquote(a):
 def _unquote_sql(a):
     """양끝 따옴표만 제거하고 내부 들여쓰기는 보존.
 
-    wrap(`" ... "`) 시 추가되는 양끝 1칸 패딩만 제거한다. 변수/식은 그대로 둠.
+    wrap(`"... "`) 시 추가되는 후행 1칸 패딩만 제거한다. 변수/식은 그대로 둠.
     """
     a = a.strip()
     if len(a) >= 2 and a[0] in "\"'" and a[-1] == a[0]:
         inner = a[1:-1]
-        if inner.startswith(" "):
-            inner = inner[1:]
         if inner.endswith(" "):
             inner = inner[:-1]
         return inner
@@ -185,8 +183,8 @@ def process_line(line):
         if idx != -1:
             content = body[:idx].rstrip()
             comment = body[idx + 2:].strip()
-            return f'pwm.appendWithCR(" {content} "); // {comment}'
-        return f'pwm.appendWithCR(" {body} ");'
+            return f'pwm.appendWithCR("{content} "); // {comment}'
+        return f'pwm.appendWithCR("{body} ");'
 
 
 if __name__ == "__main__":
